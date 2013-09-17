@@ -19,7 +19,7 @@ Or install it yourself as:
 ## Usage
 
 ```ruby
-active_report = StreamInspector.new('#local-video', page).detect_activity
+active_report = MediaStreamInspector::StreamInspector.new('#local-video', page).detect_activity
 
 # If the html element selected by #local-video had a stream then the object returned by
 # detect_activity will have was_active? true
