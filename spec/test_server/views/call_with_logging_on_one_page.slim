@@ -1,0 +1,202 @@
+doctype
+html lang="en"
+  head
+    meta charset="utf-8"
+      title title
+      script src="//code.jquery.com/jquery-1.10.1.js"
+      script src="//webrtc.googlecode.com/svn/trunk/samples/js/base/adapter.js"
+      script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.1/underscore.js"
+      css:
+        video {
+          display: block;
+          height: 100px;
+        }
+
+        #local-video {
+          background-color: #FF3300;
+        }
+
+        #video-as-if-remote {
+          background-color: #3366FF;
+        }
+
+      javascript:
+        window.localStream = null;
+        window.remoteStream = null;
+        window.localVideoElement = null;
+        window.remoteVideoElement = null;
+        window.callerPeerConnection = null;
+        window.receiverPeerConnection = null;
+
+        function getMediaSuccess(stream) {
+          localStream = stream;
+          attachLoggingToMediaStream(stream, 'caller');
+        }
+
+        function getMediaFailure() {
+          console.log("Couldn't get asked user media");
+        }
+
+        function askUserMedia() {
+          getUserMedia({video: true, audio: true}, getMediaSuccess, getMediaFailure);
+        }
+
+        function showLocalStream() {
+          attachMediaStream(localVideoElement[0], localStream);
+        }
+
+        function stopStream() {
+          console.log("Stopping stream");
+          localStream.stop();
+        }
+
+        function hideStream() {
+          $(videoElement).attr('src', '');
+        }
+
+        function makeCall() {
+          console.log("making a call");
+          callerPeerConnection = createPeerConnection();
+          callerPeerConnection.addStream(localStream);
+          callerPeerConnection.onicecandidate = gotIceCandidateForReceiver;
+          attachLoggingToPeerConnection(callerPeerConnection, 'caller');
+          callerPeerConnection.createOffer(setCallerLocalDescriptionAndSendMessage);
+        }
+
+        function remotePartyReceivesOfferMessageWithDescription(description) {
+          console.log("remotePartyReceivesOfferMessageWithDescription");
+          receiverPeerConnection = createPeerConnection();
+          receiverPeerConnection.onicecandidate = gotIceCandidateForCaller;
+          // Be ready for when caller's stream arrives
+          receiverPeerConnection.onaddstream = attachRemoteStream;
+          attachLoggingToPeerConnection(receiverPeerConnection, 'receiver');
+          receiverPeerConnection.setRemoteDescription(description);
+          sdpConstraints = {
+            mandatory: {
+              OfferToReceiveAudio: true,
+              OfferToReceiveVideo: true
+            }
+          }
+          receiverPeerConnection.createAnswer(setReceiverLocalDescriptionAndSendAnswer, null, sdpConstraints);
+        }
+
+        function setReceiverLocalDescriptionAndSendAnswer(description) {
+          console.log("setReceiverLocalDescriptionAndSendAnswer");
+          receiverPeerConnection.setLocalDescription(description);
+          callerReceivesAnswerMessageWithDescription(description);
+        }
+
+        function callerReceivesAnswerMessageWithDescription(description) {
+          console.log("callerReceivesAnswerMessageWithDescription");
+          callerPeerConnection.setRemoteDescription(description);
+        }
+
+        function setCallerLocalDescriptionAndSendMessage(description) {
+          console.log("setCallerLocalDescriptionAndSendMessage");
+          callerPeerConnection.setLocalDescription(description);
+          remotePartyReceivesOfferMessageWithDescription(description);
+        }
+
+        function attachRemoteStream(message) {
+          console.log("attachRemoteStream", message);
+          remoteStream = message['stream'];
+          attachLoggingToMediaStream(remoteStream, 'receiver');
+          attachMediaStream(remoteVideoElement[0], remoteStream);
+        }
+
+        function createPeerConnection() {
+          pc_config = {
+            iceServers: []
+          }
+          pc_constraints = {"optional": [{"DtlsSrtpKeyAgreement": true}]};
+
+          return new RTCPeerConnection(pc_config, pc_constraints);
+        }
+
+        function gotIceCandidateForCaller(event) {
+          if (event.candidate) {
+            callerPeerConnection.addIceCandidate(new RTCIceCandidate(event.candidate));
+          } else {
+            console.log("End of candidates");
+          };
+        }
+
+        function gotIceCandidateForReceiver(event) {
+          if (event.candidate) {
+            receiverPeerConnection.addIceCandidate(new RTCIceCandidate(event.candidate));
+          } else {
+            console.log("End of candidates");
+          }
+        }
+
+        function attachLoggingToMediaStream(mediaStream, prefix) {
+            loggedMethods = ['onended', 'onaddtrack', 'onremovetrack'];
+            description = '(' + prefix + ')mediaStream';
+            attachLoggingToObject(mediaStream, loggedMethods, description);
+        }
+
+        function attachLoggingToPeerConnection(peerConnection, prefix) {
+          loggedMethods = ['onaddstream', 'ondatachannel', 'onnegotiationended', 'onremovestream', 'onsignalingstatechange'];
+          description = '(' + prefix + ')peerConnection';
+          attachLoggingToObject(peerConnection, loggedMethods, description);
+        }
+
+        function attachLoggingToObject(objectUnderLogging, methodNames, objectNameInLog) {
+          _.each(methodNames, function(methodName) {
+            console.log("Attaching logger to " + methodName);
+            originalMethod = objectUnderLogging[methodName];
+            description = "" + objectNameInLog + "#" + methodName;
+            objectUnderLogging[methodName] = createLoggerMethodThatCallsOriginal(description, originalMethod, objectUnderLogging);
+          });
+        }
+
+        function createLoggerMethodThatCallsOriginal(description, original, context) {
+          return function() {
+            console.log("Method logging: " + description + " called. arguments=", arguments);
+            if (original != null) {
+              original.apply(context, arguments);
+            }
+          }
+        }
+
+        function initialize() {
+          console.log("Initializing");
+          console.log("Attaching actions to buttons");
+          $('#ask-media').click(askUserMedia);
+          $('#show-stream').click(showLocalStream);
+          $('#hide-stream').click(hideStream);
+          $('#stop-stream').click(stopStream);
+          $('#make-call').click(makeCall);
+          console.log("Getting video elements");
+          localVideoElement = $('#local-video');
+          remoteVideoElement = $('#video-as-if-remote');
+        }
+
+        $(initialize);
+
+  body
+    article
+      header
+        h1 WebRTC testing page
+      | Establishes connection between 2 parties (though on the same page) using getUserMedia and RTCPeerConnection.
+      | Check developer console, it loggs out the interesting events on MediaStream and PeerConnection instances.
+      | Following global objects are made available:
+      ol
+        li localStream
+        li remoteStream
+        li localVideoElement
+        li remoteVideoElement
+        li callerPeerConnection
+        li receiverPeerConnection
+    .action-step-buttons
+      button.btn#ask-media 1. Ask user media
+      button.btn#show-stream 2. Show stream
+      button.btn#hide-stream 3. Hide stream
+      button.btn#stop-stream 4. Stop stream
+      button.btn#make-call 5. Call
+    .caller
+      h3 This is what local party (Caller) sees
+      video#local-video autoplay=""
+    .receiver
+      h3 This is what remote party (Receiver) sees
+      video#video-as-if-remote autoplay=""
