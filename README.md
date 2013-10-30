@@ -1,5 +1,7 @@
 # MediaStreamInspector
 
+[![Code Climate](https://codeclimate.com/github/salemove/media_stream_inspector.png)](https://codeclimate.com/github/salemove/media_stream_inspector)
+
 A tool providing Ruby API for inspecting HTML5 <video> element's stream. Also offers rspec matchers for acceptance testing (e.g. WebRTC video).
 
 ## Installation
