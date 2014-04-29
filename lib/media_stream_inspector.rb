@@ -4,7 +4,6 @@ module MediaStreamInspector
   # Run tests with:
   #   rspec -I ./lib/salemove/testing ./spec/lib/salemove/testing/stream_inspector_spec.rb
   class InspectionReport
-
     def initialize(activity=false)
       @activity = activity
     end
@@ -13,7 +12,6 @@ module MediaStreamInspector
       @activity
     end
   end
-
 
   class StreamInspector
     TargetElementNotFound = Class.new(StandardError)
